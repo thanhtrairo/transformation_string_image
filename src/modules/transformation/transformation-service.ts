@@ -1,17 +1,22 @@
 import fs from "fs";
 
 import {
+  CROP_TYPES,
+  EFFECT_TYPES,
+  FORMAT_TYPES,
   ITransformationService,
+  Params,
+  QUALITY_RANGES,
   QueryParams,
   TTransformation,
 } from "./transformation-type";
-import { HTTP_STATUS, HttpException } from "../../ultils/http-exception";
+import { HTTP_STATUS, HttpException } from "../../utils/http-exception";
 import sharp, { FormatEnum } from "sharp";
 import path from "path";
 
 export default class TransformationService implements ITransformationService {
   private static instance: TransformationService;
-  private transformImages: TTransformation[] = [];
+  private transformations: TTransformation[] = [];
   private static readonly DIRECTOR = "public/images/";
   private readonly WIDTH_RANGES = {
     "100": "small",
@@ -21,13 +26,17 @@ export default class TransformationService implements ITransformationService {
     "600": "grande",
     "1039": "master",
   };
-  private readonly QUALITY_RANGES = {
-    min: 1,
-    max: 100,
-  };
-  private readonly CROP_TYPES = ["contain", "cover"];
-  private readonly FORMAT_TYPES = ["webp", "png", "jpg"];
-  private readonly EFFECT_TYPES = ["none", "grayscale", "blur"];
+  private readonly CROP_TYPES = [CROP_TYPES.contain, CROP_TYPES.cover];
+  private readonly FORMAT_TYPES = [
+    FORMAT_TYPES.webp,
+    FORMAT_TYPES.jpg,
+    FORMAT_TYPES.png,
+  ];
+  private readonly EFFECT_TYPES = [
+    EFFECT_TYPES.none,
+    EFFECT_TYPES.grayscale,
+    EFFECT_TYPES.blur,
+  ];
 
   constructor() {
     this.ensureDir(TransformationService.DIRECTOR);
@@ -48,7 +57,7 @@ export default class TransformationService implements ITransformationService {
 
   private handleWidthParams(width: string) {
     const newWidth = parseInt(width);
-    if (typeof newWidth !== "number" || !isNaN(newWidth)) {
+    if (typeof newWidth !== "number" || isNaN(newWidth)) {
       throw new HttpException(HTTP_STATUS.BAD_REQUEST, "Invalid width");
     }
     for (let key in this.WIDTH_RANGES) {
@@ -64,19 +73,19 @@ export default class TransformationService implements ITransformationService {
 
   private handleQualityParams(quality: string) {
     const newQuality = parseInt(quality);
-    if (typeof newQuality !== "number" || !isNaN(newQuality)) {
+    if (typeof newQuality !== "number" || isNaN(newQuality)) {
       throw new HttpException(HTTP_STATUS.BAD_REQUEST, "Invalid quality");
     }
-    if (
-      newQuality >= this.QUALITY_RANGES.min &&
-      newQuality <= this.QUALITY_RANGES.max
-    ) {
-      return newQuality;
+    if (newQuality < QUALITY_RANGES.min || newQuality > QUALITY_RANGES.max) {
+      throw new HttpException(
+        HTTP_STATUS.BAD_REQUEST,
+        "Width quality too large"
+      );
     }
-    throw new HttpException(HTTP_STATUS.BAD_REQUEST, "Width quality too large");
+    return newQuality;
   }
 
-  private handleCropTypeParams(cropType?: string) {
+  private handleCropTypeParams(cropType?: CROP_TYPES) {
     if (!cropType) {
       return null;
     }
@@ -86,7 +95,7 @@ export default class TransformationService implements ITransformationService {
     return cropType;
   }
 
-  private handleEffectParams(effect?: string) {
+  private handleEffectParams(effect?: EFFECT_TYPES) {
     if (!effect) {
       return null;
     }
@@ -96,61 +105,57 @@ export default class TransformationService implements ITransformationService {
     return effect;
   }
 
-  private handleFormatParams(format?: string) {
+  private handleFormatParams(format?: FORMAT_TYPES) {
     if (!format || !this.FORMAT_TYPES.includes(format)) {
       return this.FORMAT_TYPES[0];
     }
     return format;
   }
 
-  private transformParams({
-    width,
-    quality,
-    effect,
-    cropType,
-    format,
-  }: QueryParams) {
-    const widthTras = this.handleWidthParams(width);
-    const qualityTras = this.handleQualityParams(quality);
-    const cropTypeTras = this.handleCropTypeParams(cropType);
-    const effectTras = this.handleEffectParams(effect);
-    const formatTras = this.handleFormatParams(format);
-    let str = `w=${widthTras.range}&q=${qualityTras}`;
-    if (effectTras) {
-      str += `&e=${effectTras}`;
+  private transformParams({ w, q, e, c, f }: QueryParams, imageId: string) {
+    const widthProcessed = this.handleWidthParams(w);
+    const qualityProcessed = this.handleQualityParams(q);
+    const cropTypeProcessed = this.handleCropTypeParams(c);
+    const effectProcessed = this.handleEffectParams(e);
+    const formatProcessed = this.handleFormatParams(f);
+    let str = `w=${widthProcessed.range}&q=${qualityProcessed}`;
+    if (effectProcessed) {
+      str += `&e=${effectProcessed}`;
     }
-    if (cropTypeTras) {
-      str += `&c=${cropTypeTras}`;
+    if (cropTypeProcessed) {
+      str += `&c=${cropTypeProcessed}`;
     }
-    str += `.${formatTras}`;
+    str += `${imageId}.${formatProcessed}`;
 
     return {
       str,
       transformedParams: {
-        width: widthTras,
-        quality: qualityTras,
-        cropType: cropTypeTras,
-        effect: effectTras,
-        format: formatTras,
+        width: widthProcessed,
+        quality: qualityProcessed,
+        cropType: cropTypeProcessed,
+        effect: effectProcessed,
+        format: formatProcessed,
       },
     };
   }
 
-  async transformationString(query: QueryParams) {
-    if (!query.fileName || !query.width || !query.quality) {
+  async transformationString(
+    query: QueryParams,
+    { filename, imageId }: Params
+  ) {
+    if (!filename || !query.w || !query.q) {
       throw new HttpException(
         HTTP_STATUS.BAD_REQUEST,
-        "fileName or width or quality not found"
+        "filename or width or quality not found"
       );
     }
 
     const {
       str,
       transformedParams: { cropType, effect, format, quality, width },
-    } = this.transformParams(query);
+    } = this.transformParams(query, imageId);
 
-    const outputPath = path.join(__dirname, "../../public/images", str);
-    console.log("outputPath", outputPath);
+    const outputPath = path.join(__dirname, "../../../public/images", str);
 
     if (fs.existsSync(outputPath)) {
       return outputPath;
@@ -159,35 +164,44 @@ export default class TransformationService implements ITransformationService {
     try {
       const inputFilePath = path.join(
         __dirname,
-        "../../public/uploads",
-        query.fileName
+        "../../../public/uploads",
+        filename
       );
 
-      let image = sharp(inputFilePath);
+      if (!fs.existsSync(inputFilePath)) {
+        throw new HttpException(HTTP_STATUS.NOT_FOUND, "Input file is missing");
+      }
 
+      let image = sharp(inputFilePath);
       image = image
         .resize(width)
         .toFormat(format as keyof FormatEnum, { quality: quality });
 
-      if (effect === this.EFFECT_TYPES[0]) {
+      if (effect === EFFECT_TYPES.blur) {
         image = image.blur(5);
-      } else if (effect === this.EFFECT_TYPES[1]) {
+      } else if (effect === EFFECT_TYPES.grayscale) {
         image = image.grayscale();
       }
 
-      if (cropType === "contain") {
+      if (cropType === CROP_TYPES.contain) {
         image = image.resize({ fit: sharp.fit.contain });
-      } else if (cropType === "cover") {
+      } else if (cropType === CROP_TYPES.cover) {
         image = image.resize({ fit: sharp.fit.cover });
       }
+      const newFile = await image.toFile(outputPath);
+      const newTransformation: TTransformation = {
+        id: Date.now() + "-" + Math.round(Math.random() * 1e9),
+        imageId,
+        name: str,
+        path: outputPath,
+        size: newFile.size,
+        type: format,
+      };
+      this.transformations.push(newTransformation);
 
-      await image.toFile(outputPath);
       return outputPath;
     } catch (error) {
-      throw new HttpException(
-        HTTP_STATUS.INTERNAL_SERVER_ERROR,
-        "Error processing image: " + (error as Error).message
-      );
+      throw error;
     }
   }
 }

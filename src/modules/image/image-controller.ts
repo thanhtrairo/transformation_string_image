@@ -26,6 +26,6 @@ export default class ImageController extends BaseController {
   }
 
   private async createImage(req: express.Request, res: express.Response) {
-    res.send(this.imageService.upload(req.file));
+    res.send(await this.imageService.upload(req.file));
   }
 }

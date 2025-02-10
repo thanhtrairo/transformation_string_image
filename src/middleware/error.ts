@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { HttpException } from "../ultils/http-exception";
+import { HttpException } from "../utils/http-exception";
 
 interface CustomError extends Error {
   statusCode?: number;

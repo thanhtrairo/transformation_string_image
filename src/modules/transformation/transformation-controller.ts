@@ -3,7 +3,7 @@ import express from "express";
 
 import { BaseController } from "../common/base-controller";
 import TransformationService from "./transformation-service";
-import { QueryParams } from "./transformation-type";
+import { Params, QueryParams } from "./transformation-type";
 
 export default class TransformationController extends BaseController {
   private transformationService: TransformationService;
@@ -17,16 +17,20 @@ export default class TransformationController extends BaseController {
   }
 
   public initializeRoutes() {
-    this.router.post("/", asyncHandler(this.transformationString.bind(this)));
+    this.router.get(
+      "/:imageId/:filename",
+      asyncHandler(this.transformationString.bind(this))
+    );
   }
 
   private async transformationString(
     req: express.Request,
     res: express.Response
   ) {
-    res.send(
-      this.transformationService.transformationString(
-        req.query as unknown as QueryParams
+    res.sendFile(
+      await this.transformationService.transformationString(
+        req.query as unknown as QueryParams,
+        req.params as unknown as Params
       )
     );
   }

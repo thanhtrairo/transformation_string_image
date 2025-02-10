@@ -1,5 +1,5 @@
-import { HTTP_STATUS, HttpException } from "../../ultils/http-exception";
-import { IImageService, TImage } from "./image-type";
+import { HTTP_STATUS, HttpException } from "../../utils/http-exception";
+import { IImageService, TImage, UploadRes } from "./image-type";
 
 export default class ImageService implements IImageService {
   private static instance: ImageService;
@@ -12,7 +12,7 @@ export default class ImageService implements IImageService {
     return ImageService.instance;
   }
 
-  upload(file?: Express.Multer.File) {
+  async upload(file?: Express.Multer.File): Promise<UploadRes> {
     if (!file) {
       throw new HttpException(HTTP_STATUS.BAD_REQUEST, "file not found");
     }
