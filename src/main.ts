@@ -19,6 +19,7 @@ export class Main {
   }
 
   private initializeControllers(controllers: BaseController[]) {
+    this.app.use("/static", express.static("public/uploads"));
     this.app.get("/", (_req, res) => {
       res.send("Application is running");
     });

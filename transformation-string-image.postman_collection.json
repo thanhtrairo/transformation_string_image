@@ -1,0 +1,107 @@
+{
+	"info": {
+		"_postman_id": "4da3f9f8-4196-4f32-add4-b35e040bf9aa",
+		"name": "transformation-string-image",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json",
+		"_exporter_id": "17304941"
+	},
+	"item": [
+		{
+			"name": "upload",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"const res = pm.response.json();\r",
+							"\r",
+							"pm.environment.set(\"filename\", res.image.name);\r",
+							"pm.environment.set(\"imageId\", res.image.id);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/D:/my-project/image-test/unknown-any.jpg"
+						}
+					]
+				},
+				"url": "{{host}}/images/upload"
+			},
+			"response": []
+		},
+		{
+			"name": "image-origin",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": "{{host}}/static/{{filename}}"
+			},
+			"response": []
+		},
+		{
+			"name": "transformation",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{host}}/transformation/{{imageId}}/{{filename}}?q=80&e=none&f=webp&c=contain&w=600",
+					"host": [
+						"{{host}}"
+					],
+					"path": [
+						"transformation",
+						"{{imageId}}",
+						"{{filename}}"
+					],
+					"query": [
+						{
+							"key": "q",
+							"value": "80"
+						},
+						{
+							"key": "e",
+							"value": "none"
+						},
+						{
+							"key": "f",
+							"value": "webp"
+						},
+						{
+							"key": "c",
+							"value": "contain"
+						},
+						{
+							"key": "w",
+							"value": "600"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
